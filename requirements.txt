@@ -1,0 +1,157 @@
+streamlit>=1.62
+# EXTENSION: Flask powers the NEW hands-free, voice-navigated frontend
+# (flask_app.py) built to replace Streamlit for that specific reason --
+# Streamlit's st.audio_input needs a click for every single recording,
+# with no way to keep listening afterwards. streamlit>=1.62 above is
+# kept for now since the original Practice/Custom Practice/Teacher/
+# Dashboard screens still run there and haven't been ported to Flask
+# yet; both can run side by side during the migration.
+Flask>=3.0
+
+# Audio processing / fallback scoring (DTW+MFCC, used only when ASR
+# is unavailable)
+numpy
+scipy
+librosa
+soundfile
+fastdtw
+
+# Real speech recognition -- compares what the child actually said
+# against the target word/line, rather than only acoustic similarity.
+# faster-whisper specifically (not openai-whisper): it does NOT
+# require a full PyTorch install. Confirmed directly while building
+# this: openai-whisper's default PyPI install pulls in a GPU-oriented
+# PyTorch build with several gigabytes of CUDA dependencies that then
+# fail to import at all on a CPU-only machine. faster-whisper (built
+# on CTranslate2) avoids that dependency chain entirely.
+faster-whisper
+
+# Text-to-speech, in fallback order: edge-tts (real neural, natural-
+# sounding female Indian-accented voices for both languages -- see
+# modules/audio.py for exactly which voices and why) -> gTTS (a real
+# online voice, more generic-sounding) -> pyttsx3 (offline, used only
+# if neither of the above can be reached at all).
+edge-tts
+gTTS
+
+# Offline TTS fallback -- used automatically when neither edge-tts nor
+# gTTS can be reached (confirmed necessary: this sandbox itself blocks
+# both Microsoft's and Google's TTS endpoints, so this fallback tier
+# is what was actually exercised and tested during development)
+pyttsx3
+
+# EXTENSION: real matplotlib charts on the restyled dashboard (per-
+# language score chart, All Students average-by-language chart) --
+# colours match Ravikumar's own React dashboard palette (see app.py's
+# LANG_COLORS). Falls back to a plain st.dataframe automatically if
+# rendering fails for any reason, so a missing/broken matplotlib
+# install never breaks the dashboard itself, only its chart.
+matplotlib
+
+# EXTENSION: animated, narrated, word-highlighted lesson VIDEO
+# (modules/video_gen.py) -- built from the lesson's own picture + this
+# app's own TTS narration + real/estimated word timing, NOT a
+# generative-AI video model (see video_gen.py's module docstring for
+# the full, honest explanation). imageio-ffmpeg specifically because it
+# ships its own portable ffmpeg binary via pip -- no separate system
+# ffmpeg install needed, which matters a lot on Windows. Graceful
+# fallback like everything else here: if this isn't installed, the
+# video feature simply doesn't appear in the Practice tab, nothing else
+# breaks.
+moviepy
+imageio-ffmpeg
+Pillow>=10.1
+
+# EXTENSION NOTE: pydub is not used by this app (audio is normalized to
+# WAV directly via librosa/soundfile), so the Python 3.13 `audioop`
+# removal issue documented elsewhere in this project does not apply
+# here. If you add pydub-based processing later, see the sibling
+# capstone2_extension project's requirements.txt for the audioop-lts
+# workaround needed on Python 3.13+.
+
+# FIRST-RUN NOTE: faster-whisper downloads its model files from
+# huggingface.co the first time each language is used ("tiny" model
+# for English, ~500MB ("small" -- upgraded from "tiny" after real
+# testing found it wasn't accurate enough for a child's voice); "large-v3" for Kannada, ~3GB -- smaller models
+# were tested and confirmed unreliable for Kannada specifically, see
+# modules/asr.py). This needs
+# a normal internet connection once; after that the model is cached
+# locally and no further download happens. If your network blocks
+# huggingface.co specifically (some corporate/school networks do),
+# transcribe() will return None and the app automatically falls back
+# to the acoustic-similarity scoring instead of failing.
+PyPDF2
+
+# EXTENSION: OCR fallback for Kannada (and other legacy-font) PDFs whose
+# internal text layer is mojibake -- see modules/pdf_ingest.py's module
+# docstring and is_likely_mojibake()/extract_text_via_ocr(). These two
+# were MISSING from this file entirely, which is the real reason OCR
+# never ran: modules/pdf_ingest.py's `import pymupdf` / `import
+# pytesseract` silently failed, OCR_AVAILABLE became False, and the
+# Teacher Upload PDF extraction endpoint fell straight back to handing
+# over the raw, garbled text with no fallback attempted at all.
+# Installing these two Python packages is necessary but NOT sufficient
+# by itself -- pytesseract is a thin wrapper that shells out to the
+# real Tesseract OCR program, which is a separate, OS-level install:
+# see the README note this extension adds for the Windows installer
+# and Kannada-language-pack steps.
+pymupdf
+pytesseract
+
+# ============================================================================
+# EXTENSION: Custom Practice voice cloning (modules/voice_clone.py)
+# ============================================================================
+# Nothing new is REQUIRED for the reliable tier of voice cloning (real
+# recorded-voice reuse, works for both languages) -- it only needs the
+# sqlite3/os/json already used everywhere else in this project.
+#
+# The OPTIONAL tier -- true zero-shot neural voice cloning of arbitrary
+# new English text (Coqui TTS's XTTS-v2 model) -- needs the `TTS`
+# package below. It is commented out by default because it is a large,
+# heavy install (pulls in PyTorch and downloads a multi-GB model the
+# first time it runs) and Kannada isn't supported by it at all (see
+# voice_clone.py's module docstring) -- for many setups, especially a
+# typical home/school laptop, the reliable recorded-voice tier alone is
+# both simpler and sufficient. Uncomment the line below only if you
+# specifically want true English voice-cloned synthesis in addition to
+# real recorded playback; the app checks for this at runtime and works
+# perfectly well without it either way.
+# TTS
+
+# RECOMMENDED tier that enables true, arbitrary-text voice cloning for
+# BOTH languages (including Kannada, where XTTS above has no support at
+# all) -- OpenVoice V2 tone-colour conversion, via the pip-installable
+# `openvoice-cli` package (confirmed to install and import cleanly).
+# This is what powers the "record 10-15 phrases once, then any typed
+# sentence is heard in that voice" enrollment feature in Custom
+# Practice. It does NOT teach a model to "speak Kannada" itself; it
+# re-voices audio this app's own existing TTS pipeline already
+# generates correctly, to sound like the recorded profile (full,
+# honest explanation in voice_clone.py, right above _openvoice_clone).
+# It's a real install (PyTorch + a one-time ~200MB checkpoint download
+# from Hugging Face on first use, then cached locally forever). Without
+# it, Custom Practice still works perfectly via real recorded-word/
+# sentence playback (tier 1), just without synthesized cloning of
+# brand-new typed text.
+openvoice-cli
+
+# OPTIONAL, PAID CLOUD tier (modules/sarvam_voice.py) -- Sarvam AI's
+# hosted voice-cloning API. Tried BEFORE OpenVoice above (see
+# voice_clone.py's clone_synthesize) because it's simpler and more
+# reliable once configured: one clone -> one voice_id -> reused for
+# ANY typed sentence, in EITHER English or Kannada, with no local model
+# to download or load. STATED HONESTLY: this is a commercial API (not
+# free/open-source like OpenVoice), it needs internet on every
+# generated sentence, and it uploads the profile's recorded reference
+# clip + every generated sentence's text to Sarvam's servers -- worth
+# knowing before using it with real family recordings, not just a demo.
+# To enable it:
+#   1. pip install sarvamai
+#   2. Get an API key from https://www.sarvam.ai
+#   3. Set it as an environment variable (never hard-code it in source
+#      or commit it to git) -- in PowerShell:
+#        $env:SARVAM_API_KEY="your-key-here"
+# Without SARVAM_API_KEY set, this tier is silently skipped (printing
+# one explanatory line) and the app falls straight through to
+# OpenVoice, then to real recorded playback -- nothing else breaks.
+sarvamai

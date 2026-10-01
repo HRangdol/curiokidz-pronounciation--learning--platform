@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>All Students — CurioKidz Reading Buddy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/css/theme.css">
+<style>
+  a.ck-back { color: var(--ck-muted); text-decoration:none; font-size:14px; }
+  .student-row {
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:14px 6px; border-bottom:1px solid #eee; text-decoration:none; color:inherit;
+  }
+  .student-row:last-child { border-bottom:none; }
+  .student-row:hover { background:#FAFAFA; border-radius:12px; }
+  .student-name { font-weight:700; font-size:19px; display:flex; align-items:center; gap:10px; }
+  .student-name .ck-avatar { font-size:34px; line-height:1; }
+  .student-stats { display:flex; gap:14px; font-size:14px; color:var(--ck-muted); flex-wrap:wrap; }
+  .student-stats b { color:var(--ck-text); }
+  .empty { text-align:center; color:var(--ck-muted); padding:30px 10px; }
+</style>
+</head>
+<body class="ck">
+  <div class="ck-container">
+    <a class="ck-back" href="/">← Home</a>
+    <div class="ck-header" id="ck-header"></div>
+
+    <div class="ck-card">
+      <h2 style="margin-top:0;"><span class="ck-icon-xl">🧑‍🏫</span> All Students</h2>
+      <p style="color:var(--ck-muted); margin-top:-8px;">Every child who has practiced so far, with their streak, XP, lessons completed and average score. Tap a name to open their full dashboard.</p>
+      <div id="students-list"></div>
+    </div>
+  </div>
+
+<script src="/static/js/ckheader.js"></script>
+<script>
+async function loadStudents() {
+  const el = document.getElementById('students-list');
+  el.innerHTML = '<p style="text-align:center; color:var(--ck-muted);">Loading…</p>';
+  try {
+    const data = await (await fetch('/api/teacher/students')).json();
+    const students = data.students || [];
+    if (!students.length) {
+      el.innerHTML = '<div class="empty">No students have practiced yet. Once a child enters their name and starts a lesson, they\'ll show up here.</div>';
+      return;
+    }
+    el.innerHTML = students.map(s => `
+      <a class="student-row" href="/dashboard?child=${encodeURIComponent(s.name)}">
+        <div class="student-name"><span class="ck-avatar">🦜</span> ${s.name}</div>
+        <div class="student-stats">
+          <span>🔥 <b>${s.streak}</b> day streak</span>
+          <span>⭐ <b>${s.xp}</b> XP</span>
+          <span>📘 <b>${s.lessons_completed}</b> lessons</span>
+          <span>🎯 <b>${s.avg_score ?? '—'}</b> avg score</span>
+        </div>
+      </a>
+    `).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="empty">Couldn\'t load students right now. Try refreshing.</div>';
+  }
+}
+
+renderCkHeader('ck-header', 'All Students');
+loadStudents();
+</script>
+</body>
+</html>

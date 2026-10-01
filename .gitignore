@@ -1,0 +1,12 @@
+﻿__pycache__/
+*.pyc
+.venv/
+venv/
+data/progress.db
+data/recordings/
+data/voice_profiles/
+assets/audio/*.mp3
+
+data/openvoice_checkpoints/
+
+.idea/

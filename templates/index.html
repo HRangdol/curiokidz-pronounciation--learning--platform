@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CurioKidz Reading Buddy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/css/theme.css">
+<style>
+  .ck-nav { text-align:center; margin-bottom:24px; display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+  .ck-nav a {
+    color: var(--ck-text); text-decoration:none; font-weight:700; font-size:16px;
+    display:inline-flex; flex-direction:column; align-items:center; gap:4px;
+    background: var(--ck-card); border-radius:16px; padding:12px 16px; min-width:92px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.06); border: 2px solid rgba(0,0,0,0.03);
+  }
+  .ck-nav a .ck-nav-icon { font-size:30px; line-height:1; }
+  .ck-nav a:hover { background:#FAFAFA; }
+
+  /*
+   * EXTENSION: "course card" picker, styled after a real Duolingo-clone
+   * open-source project (github.com/D-6503/D_Learning_Platform_for_kids)
+   * the user pointed to -- its Card component uses a rounded card with
+   * a noticeably thick BOTTOM border that flattens to a thin one on
+   * click (border-b-4 -> active:border-b-2 in their Tailwind code),
+   * a light hover tint, and a green checkmark badge marking the
+   * selected/active course. Reimplemented here in plain CSS with our
+   * own colors/icons/content -- this is our language picker, not a
+   * copy of their file, but it is deliberately built to the same
+   * concrete pattern they used, since that's what was asked for.
+   */
+  .lang-row { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:16px; margin-bottom:28px; }
+  .lang-card {
+    background: var(--ck-card); border: 2px solid #E5E5E5; border-bottom-width: 6px;
+    border-radius: 16px; padding: 18px 14px; min-height: 164px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    position: relative; transition: background .1s, transform .05s, border-color .1s;
+  }
+  .lang-card:hover { background: rgba(0,0,0,0.03); }
+  .lang-card:active { transform: translateY(4px); border-bottom-width: 2px; }
+  .lang-card.active {
+    border-color: var(--ck-green); background: #F1FAF1;
+  }
+  .lang-card .check {
+    position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; border-radius: 8px;
+    background: var(--ck-green); color: #fff; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; box-shadow: 0 2px 0 var(--ck-green-dark);
+  }
+  .lang-card .icon { font-size: 46px; margin: 10px 0; }
+  .lang-card .title { font-weight: 700; font-size: 16px; text-align: center; color: var(--ck-text); }
+
+  /*
+   * EXTENSION: real lesson cover art on the lesson-path nodes, instead
+   * of a plain emoji -- each built-in lesson already has a real cover
+   * image (modules/content.py's "image" field, now served via the new
+   * /assets/<path> Flask route) that was never actually shown anywhere
+   * before. A book cover is far more inviting for a child choosing a
+   * lesson than a generic icon. Falls back to the emoji icon for any
+   * lesson without one (e.g. a teacher-uploaded lesson with no cover).
+   */
+  .ck-node.has-image { background-size: cover; background-position: center; }
+  .ck-node.has-image.locked { filter: grayscale(0.8) brightness(0.75); }
+  .ck-node-badge {
+    position: absolute; bottom: -4px; right: -4px; font-size: 26px; line-height: 1;
+    filter: drop-shadow(0 2px 0 rgba(0,0,0,0.2));
+  }
+</style>
+</head>
+<body class="ck">
+  <div class="ck-container">
+    <div class="ck-header" id="ck-header"></div>
+    <div class="ck-nav">
+      <a href="/custom"><span class="ck-nav-icon">🎙️</span> Custom Practice</a>
+      <a href="/dashboard"><span class="ck-nav-icon">📊</span> Dashboard</a>
+      <a href="/teacher"><span class="ck-nav-icon">📄</span> Teacher Upload</a>
+      <a href="/students"><span class="ck-nav-icon">🧑‍🏫</span> All Students</a>
+    </div>
+    <div class="lang-row" id="lang-row"></div>
+    <div class="ck-path" id="lessons"></div>
+  </div>
+
+<script src="/static/js/ckheader.js"></script>
+<script>
+const LANG_ICONS = { en: '🇬🇧', kn: '🅺' };
+const LANGUAGES = {{ languages|tojson }};
+let activeLang = LANGUAGES[0][0];
+
+function renderLangButtons() {
+  const el = document.getElementById('lang-row');
+  el.innerHTML = LANGUAGES.map(([code, label]) => `
+    <div class="lang-card ${code === activeLang ? 'active' : ''}" onclick="selectLang('${code}')">
+      ${code === activeLang ? '<div class="check">✓</div>' : ''}
+      <div class="icon">${LANG_ICONS[code] || '📘'}</div>
+      <div class="title">${label}</div>
+    </div>
+  `).join('');
+}
+
+function selectLang(code) {
+  activeLang = code;
+  renderLangButtons();
+  loadLessons(code);
+}
+
+async function loadLessons(lang) {
+  const name = getChildName();
+  const res = await fetch(`/api/lessons?lang=${lang}&child=${encodeURIComponent(name)}&all=1`);
+  const lessons = await res.json();
+  const el = document.getElementById('lessons');
+  el.innerHTML = lessons.map((l, i) => {
+    const side = i % 3 === 0 ? 'left' : (i % 3 === 1 ? 'center' : 'right');
+    const nodeClass = l.locked ? 'locked' : (l.completed ? 'done' : 'available');
+    const href = l.locked ? '#' : `/practice/${l.id}`;
+    const hasImage = !!l.image;
+    // With a real cover image: show the artwork itself, plus a small
+    // badge (lock/star) in the corner so locked/completed state is
+    // still obvious at a glance. Without one (no cover art for this
+    // lesson): fall back to the plain emoji-in-circle look as before.
+    const nodeStyle = hasImage ? `style="background-image:url('/${l.image}')"` : '';
+    const innerContent = hasImage ? '' : (l.locked ? '🔒' : (l.completed ? '⭐' : '📘'));
+    const badge = hasImage ? (l.locked ? '🔒' : (l.completed ? '⭐' : '')) : '';
+    return `
+      <div class="ck-path-row ${side}" style="position:relative; margin-bottom:46px;">
+        <a class="ck-node ${nodeClass} ${hasImage ? 'has-image' : ''}" ${nodeStyle} href="${href}" title="${l.title}">${innerContent}${badge ? `<span class="ck-node-badge">${badge}</span>` : ''}</a>
+        <div class="ck-node-label" style="left:${side==='left'?'15%':side==='right'?'85%':'50%'}">${l.title}</div>
+      </div>`;
+  }).join('');
+}
+
+renderCkHeader('ck-header', 'CurioKidz Reading Buddy');
+renderLangButtons();
+loadLessons(LANGUAGES[0][0]);
+</script>
+</body>
+</html>

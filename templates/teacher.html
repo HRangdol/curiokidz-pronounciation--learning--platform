@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Teacher Upload — CurioKidz Reading Buddy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/css/theme.css">
+<style>
+  textarea { width:100%; box-sizing:border-box; padding:10px; border-radius:12px; border:1px solid #ddd; font-family:monospace; }
+  input[type=text] { width:100%; padding:8px 14px; border-radius:999px; border:1px solid #ddd; box-sizing:border-box; margin-bottom:8px; font-family:inherit; }
+  select { padding:8px 14px; border-radius:999px; border:1px solid #ddd; font-family:inherit; }
+  .chapter { border:1px solid #eee; border-radius:16px; padding:12px; margin-bottom:12px; }
+  .msg { color: var(--ck-red); font-weight:600; }
+  a.ck-back { color: var(--ck-muted); text-decoration:none; font-size:14px; }
+</style>
+</head>
+<body class="ck">
+  <div class="ck-container">
+    <a class="ck-back" href="/">← Home</a>
+    <div class="ck-header" id="ck-header"></div>
+
+    <div class="ck-card" style="text-align:center;">
+      <a class="ck-btn" style="text-decoration:none; display:inline-block;" href="/students">🧑‍🏫 View all students' progress</a>
+    </div>
+
+    <div class="ck-card">
+      <h3 style="margin-top:0;"><span class="ck-icon-xl">📄</span> Upload a lesson PDF</h3>
+      <label>Language:
+        <select id="lang-select" onchange="loadCloneLessons()">
+          {% for code, label in languages %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <p>Mark separate chapters in the PDF text with a line containing exactly <code>---CHAPTER---</code>. If there's no marker, the whole PDF becomes one lesson.</p>
+      <input type="file" id="pdf-file" accept="application/pdf">
+      <button class="ck-btn" onclick="extract()">Extract text</button>
+      <div class="msg" id="extract-msg"></div>
+    </div>
+
+    <div class="ck-card" id="edit-card" style="display:none">
+      <h3 style="margin-top:0;"><span class="ck-icon-xl">📝</span> Review / edit the extracted text</h3>
+      <textarea id="raw-text" rows="14"></textarea>
+      <button class="ck-btn blue" onclick="split()">Split into chapters ➡️</button>
+    </div>
+
+    <div class="ck-card" id="chapters-card" style="display:none">
+      <h3 style="margin-top:0;"><span class="ck-icon-xl">📚</span> Give each chapter a title, then save</h3>
+      <div id="chapters"></div>
+      <button class="ck-btn orange" onclick="saveAll()">💾 Save as lesson(s)</button>
+      <div class="msg" id="save-msg"></div>
+    </div>
+
+    <div class="ck-card">
+      <h3 style="margin-top:0;"><span class="ck-icon-xl">🎤</span> Clone a whole lesson into a voice</h3>
+      <p style="color:var(--ck-muted); margin-top:-8px;">Pick any saved lesson (built-in or uploaded) and an existing voice profile — every line gets cloned in that voice, so a child can listen to the whole lesson read aloud in a familiar voice. This uses ONLY open-source models (XTTS-v2, then OpenVoice V2) — never Sarvam, which is a paid closed-source API and is skipped entirely for this feature.</p>
+      <label>Lesson:
+        <select id="clone-lesson-select" onchange="loadCloneStanzas()"></select>
+      </label>
+      <label>Voice:
+        <select id="clone-profile-select"></select>
+      </label>
+      <label>How much to clone:
+        <select id="clone-stanza-select"></select>
+      </label>
+      <p style="color:var(--ck-muted); font-size:13px;">Don't see the voice you want? Go record one first in <a href="/custom">Custom Practice</a> — it just needs at least one recording in this language. Tip: cloning one stanza at a time is much faster (a stanza is usually just 3–5 lines) — clone stanza 1 first to check it sounds right, then do the rest. Each stanza you clone is added to what's already playable, nothing is lost.</p>
+      <button class="ck-btn orange" id="clone-btn" onclick="cloneLesson()">🎙️ Clone</button>
+      <div class="msg" id="clone-msg"></div>
+      <div id="clone-progress-wrap" style="display:none; margin-top:10px;">
+        <progress id="clone-progress" style="width:100%;"></progress>
+      </div>
+      <div id="clone-playback" style="display:none; margin-top:14px;">
+        <button class="ck-btn blue" onclick="playClonedLesson()">▶️ Play whole lesson in this voice</button>
+        <div id="clone-line-text" style="margin-top:10px; font-size:18px; text-align:center; min-height:28px;"></div>
+      </div>
+    </div>
+  </div>
+
+<script src="/static/js/ckheader.js"></script>
+<script src="/static/js/teacher.js"></script>
+<script>renderCkHeader('ck-header', 'Teacher Upload');</script>
+</body>
+</html>

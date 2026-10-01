@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Custom Practice — CurioKidz Reading Buddy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/css/theme.css">
+<style>
+  select, textarea, input[type=text] {
+    width:100%; padding:10px; border-radius:12px; border:1px solid #ddd;
+    font-family:inherit; font-size:16px; box-sizing:border-box; margin-bottom:8px;
+  }
+  .ck-btn.record { background: var(--ck-red); box-shadow: 0 4px 0 #B33; }
+  .ck-btn.record.recording { background: #333; box-shadow: 0 4px 0 #111; }
+  #enroll-progress { width:100%; height:14px; accent-color: var(--ck-green); }
+  #enroll-status, #sentence-status { font-size:14px; color: var(--ck-muted); }
+  a.ck-back { color: var(--ck-muted); text-decoration:none; font-size:14px; }
+</style>
+</head>
+<body class="ck">
+  <div class="ck-container">
+    <a class="ck-back" href="/">← Home</a>
+    <div class="ck-header" id="ck-header"></div>
+    <p>Record your own voice once, saying the whole sentence — your child hears exactly that voice, played back slower, then reads it back to check their reading.</p>
+
+    <div class="ck-card">
+      <h3 style="margin-top:0;">Step 1 — Whose voice?</h3>
+      <select id="profile-select"></select>
+      <input type="text" id="new-profile-name" placeholder="Or type a new name (e.g. Amma, Appa)">
+      <button class="ck-btn" onclick="createProfile()">Use this voice</button>
+    </div>
+
+    <div class="ck-card" id="lang-step" style="display:none">
+      <h3 style="margin-top:0;">Step 2 — Language</h3>
+      <div id="lang-radios"></div>
+    </div>
+
+    <div class="ck-card" id="enroll-step" style="display:none">
+      <h3 style="margin-top:0;">🎯 Build a stronger cloned voice (optional)</h3>
+      <p>Recording these short phrases once (~2 min total) means ANY sentence typed later can be heard in this voice — not just ones recorded word for word.</p>
+      <progress id="enroll-progress" value="0" max="1"></progress>
+      <div id="enroll-status"></div>
+      <div class="ck-word-card" id="enroll-text" style="font-size:24px;"></div>
+      <button class="ck-btn record" id="enroll-record-btn" onclick="toggleEnrollRecording()">🔴 Record this phrase</button>
+      <button class="ck-btn ghost" onclick="resetEnrollment()">Re-record from scratch</button>
+    </div>
+
+    <div class="ck-card" id="sentence-step" style="display:none">
+      <h3 style="margin-top:0;">Step 3 — What should the child practice?</h3>
+      <select id="sample-select" onchange="onSampleChange()"></select>
+      <textarea id="custom-text" rows="3" placeholder="Type the sentence your child should practice..."></textarea>
+      <button class="ck-btn blue" onclick="useSentence()">Use this sentence ➡️</button>
+    </div>
+
+    <div class="ck-card" id="record-step" style="display:none">
+      <h3 style="margin-top:0;">Step 4 — Record the whole sentence (optional, but sounds best)</h3>
+      <div class="ck-word-card" id="record-text" style="font-size:24px;"></div>
+      <div id="sentence-status"></div>
+      <button class="ck-btn record" id="sentence-record-btn" onclick="toggleSentenceRecording()">🔴 Record the sentence</button>
+      <button class="ck-btn ghost" id="skip-record-btn" style="display:none" onclick="showChildStep()">⏭️ Skip — use cloned voice instead</button>
+      <button class="ck-btn orange" id="continue-btn" style="display:none" onclick="showChildStep()">Continue ➡️</button>
+    </div>
+
+    <div class="ck-card" id="child-step" style="display:none">
+      <h3 style="margin-top:0;">🌟 Your child's turn — listen, then read it back!</h3>
+      <div class="ck-word-card" id="child-text" style="font-size:24px;"></div>
+      <div class="ck-status" id="child-status">Tap below once, then it's all hands-free.</div>
+      <div style="text-align:center;">
+        <button class="ck-btn" id="child-start-btn" onclick="startChildPractice()">🎙️ Enable microphone &amp; start</button>
+      </div>
+      <div class="ck-badge" id="child-badge"></div>
+
+      <!--
+        EXTENSION: without this, the only way to practice a different
+        sentence (or switch to a different voice, e.g. "mother" to
+        "father") after finishing here was a full browser reload --
+        these two buttons reset the relevant part of the page's JS
+        state in place instead, no reload needed. Pure addition: the
+        rest of this card and every earlier step are unchanged.
+      -->
+      <div id="again-wrap" style="display:none; text-align:center; margin-top:18px; padding-top:14px; border-top:2px solid #eee;">
+        <button class="ck-btn blue" onclick="newSentenceSameVoice()">🔁 New sentence, same voice</button>
+        <button class="ck-btn ghost" onclick="startOver()">👤 Switch voice (e.g. Mother → Father)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ck-xp-float" id="xp-float"></div>
+
+<script>window.LANGUAGES = {{ languages|tojson }};</script>
+<script src="/static/js/ckheader.js"></script>
+<script src="/static/js/custom.js"></script>
+<script>renderCkHeader('ck-header', 'Custom Practice');</script>
+</body>
+</html>

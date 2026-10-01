@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{ lesson.title }} — CurioKidz Reading Buddy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/css/theme.css">
+<style>
+  .ck-enable-wrap { text-align:center; margin:24px 0; }
+  a.ck-back { color: var(--ck-muted); text-decoration:none; font-size:14px; }
+</style>
+</head>
+<body class="ck">
+  <div class="ck-container">
+    <a class="ck-back" href="/">← Home</a>
+    <div class="ck-header" id="ck-header"></div>
+
+    <div class="ck-card">
+      <h2 style="margin-top:0;"><span class="ck-icon-xl">📖</span> {{ lesson.title }}</h2>
+      <div id="hearts-row" style="text-align:center; margin-bottom:8px;"></div>
+      <div class="ck-reading-text" id="reading-text"></div>
+      <div class="ck-enable-wrap">
+        <button class="ck-btn" id="enable-btn" style="font-size:22px;" onclick="startHandsFree()">🎙️ Enable microphone &amp; start</button>
+      </div>
+      <div class="ck-word-card" id="word-card" style="display:none"></div>
+      <div class="ck-status" id="status">Say "start" whenever you're ready, "repeat" to hear it again, or "stop" to end.<span class="ck-mic-dot" id="mic-dot"></span></div>
+      <div class="ck-badge" id="badge"></div>
+      <div class="ck-enable-wrap" id="stop-wrap" style="display:none">
+        <button class="ck-btn" style="background:var(--ck-red); box-shadow:0 4px 0 #C23B3B;" id="stop-btn" onclick="stopPractice()">⏹️ Stop for today</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ck-xp-float" id="xp-float"></div>
+
+<script>
+  window.LESSON_ID = "{{ lesson.id }}";
+  window.LESSON_LANGUAGE = "{{ lesson.language }}";
+</script>
+<script src="/static/js/ckheader.js"></script>
+<script src="/static/js/handsfree.js"></script>
+<script>renderCkHeader('ck-header', '{{ lesson.title }}');</script>
+</body>
+</html>

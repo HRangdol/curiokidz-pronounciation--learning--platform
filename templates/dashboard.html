@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard — CurioKidz Reading Buddy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/css/theme.css">
+<style>
+  .stat-row { display:flex; gap:14px; flex-wrap:wrap; }
+  .stat { flex:1; min-width:120px; text-align:center; background:#FAFAFA; border-radius:18px; padding:18px 14px; }
+  .stat .num { font-size:32px; font-weight:700; color: var(--ck-green-dark); }
+  table { width:100%; border-collapse:collapse; }
+  td, th { padding:8px; text-align:left; border-bottom:1px solid #eee; }
+  input[type=text] { padding:8px 14px; border-radius:999px; border:1px solid #ddd; font-family:inherit; }
+  a.ck-back { color: var(--ck-muted); text-decoration:none; font-size:14px; }
+
+  /*
+   * EXTENSION: "learning monitoring" additions -- a motivational banner,
+   * a Duolingo-style weekly streak calendar (7 little day-boxes, lit up
+   * on days the child actually practiced), and an achievement-badges
+   * row. Pure additions: nothing above this comment or in the existing
+   * stat/table cards below was touched -- these just render into new
+   * cards appended after the ones that were already there.
+   */
+  .motivate-banner {
+    background: linear-gradient(135deg, var(--ck-green), var(--ck-green-dark));
+    color: #fff; border-radius: var(--ck-radius); padding: 20px 24px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 0 rgba(0,0,0,0.12);
+  }
+  .motivate-banner .emoji { font-size: 40px; line-height: 1; }
+  .motivate-banner .msg { font-size: 17px; font-weight: 700; }
+  .week-row { display: flex; gap: 10px; justify-content: space-between; }
+  .week-day { flex: 1; text-align: center; }
+  .week-day .box {
+    width: 100%; aspect-ratio: 1; border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; font-size: 20px; background: #F0F0F0; border: 2px solid #E5E5E5;
+  }
+  .week-day .box.active { background: #FFF6DC; border-color: var(--ck-yellow); }
+  .week-day .box.today { border-color: var(--ck-green); border-width: 3px; }
+  .week-day .lbl { font-size: 12px; font-weight: 700; color: var(--ck-muted); margin-top: 6px; }
+  .badge-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .badge-chip {
+    display: flex; flex-direction: column; align-items: center; gap: 4px; width: 92px;
+    padding: 12px 8px; border-radius: 16px; background: #FAFAFA; border: 2px solid #eee;
+  }
+  .badge-chip.earned { background: #FFF6DC; border-color: var(--ck-yellow); }
+  .badge-chip .icon { font-size: 30px; }
+  .badge-chip.locked .icon { filter: grayscale(1); opacity: .4; }
+  .badge-chip .label { font-size: 11px; font-weight: 700; text-align: center; color: var(--ck-text); }
+  .badge-chip.locked .label { color: var(--ck-muted); }
+</style>
+</head>
+<body class="ck">
+  <div class="ck-container">
+    <a class="ck-back" href="/">← Home</a>
+    <div class="ck-header" id="ck-header"></div>
+    <div class="ck-card">
+      <input type="text" id="child-name" placeholder="Child's name" onchange="onNameChange()">
+    </div>
+    <div id="content"></div>
+  </div>
+
+<script src="/static/js/ckheader.js"></script>
+<script>
+function onNameChange() {
+  setChildName(document.getElementById('child-name').value || 'default');
+  load();
+  renderCkHeader('ck-header', 'Progress Dashboard');
+}
+
+// ---------------------------------------------------------------------
+// EXTENSION: "learning monitoring" helpers -- a motivational message
+// that reacts to the child's own streak/accuracy, a 7-day streak
+// calendar built from stats.daily_counts (already computed server-side,
+// just never rendered before), and a simple achievement-badges list.
+// All pure functions of data the existing /api/dashboard response
+// already returns -- no backend change needed for any of this.
+// ---------------------------------------------------------------------
+function motivationMessage(streak, avgScore, lessonsCompleted) {
+  if (streak >= 7) return { emoji: '🔥', msg: `Amazing! ${streak}-day streak! You're unstoppable!` };
+  if (streak >= 3) return { emoji: '🔥', msg: `${streak} days in a row — keep that streak alive!` };
+  if (avgScore !== null && avgScore >= 85) return { emoji: '🌟', msg: 'Your pronunciation is fantastic — keep it up!' };
+  if (lessonsCompleted >= 1) return { emoji: '📘', msg: 'Great progress! On to the next lesson!' };
+  return { emoji: '🦜', msg: "Let's start today's practice — every word counts!" };
+}
+
+function renderWeekCalendar(dailyCounts) {
+  const practicedDates = new Set((dailyCounts || []).map(d => d.d));
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = new Date();
+  let boxes = '';
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const iso = d.toISOString().slice(0, 10);
+    const isToday = i === 0;
+    const active = practicedDates.has(iso);
+    boxes += `
+      <div class="week-day">
+        <div class="box ${active ? 'active' : ''} ${isToday ? 'today' : ''}">${active ? '🔥' : ''}</div>
+        <div class="lbl">${dayLabels[d.getDay()]}</div>
+      </div>`;
+  }
+  return `<div class="week-row">${boxes}</div>`;
+}
+
+function renderBadges(streak, xp, lessonsCompleted) {
+  const badges = [
+    { icon: '🔥', label: '3-day streak', earned: streak >= 3 },
+    { icon: '🔥', label: '7-day streak', earned: streak >= 7 },
+    { icon: '🏅', label: '30-day streak', earned: streak >= 30 },
+    { icon: '⭐', label: '100 XP', earned: xp >= 100 },
+    { icon: '🌟', label: '500 XP', earned: xp >= 500 },
+    { icon: '💎', label: '1000 XP', earned: xp >= 1000 },
+    { icon: '📘', label: '1 lesson done', earned: lessonsCompleted >= 1 },
+    { icon: '🏆', label: '5 lessons done', earned: lessonsCompleted >= 5 },
+  ];
+  return badges.map(b => `
+    <div class="badge-chip ${b.earned ? 'earned' : 'locked'}">
+      <div class="icon">${b.icon}</div>
+      <div class="label">${b.label}</div>
+    </div>
+  `).join('');
+}
+
+async function load() {
+  const child = getChildName();
+  const data = await (await fetch(`/api/dashboard?child=${encodeURIComponent(child)}`)).json();
+  const s = data.stats;
+  const motiv = motivationMessage(data.streak, s.avg_score, s.lessons_completed);
+  let html = `
+    <div class="motivate-banner">
+      <div class="emoji">${motiv.emoji}</div>
+      <div class="msg">${motiv.msg}</div>
+    </div>
+    <div class="ck-card">
+      <div class="stat-row">
+        <div class="stat"><div class="num">🔥 ${data.streak}</div>day streak</div>
+        <div class="stat"><div class="num">⭐ ${data.xp}</div>total XP</div>
+        <div class="stat"><div class="num">${s.lessons_completed}</div>lessons done</div>
+        <div class="stat"><div class="num">${s.avg_score ?? '—'}</div>avg score</div>
+      </div>
+    </div>
+    <div class="ck-card">
+      <h3 style="margin-top:0;"><span class="ck-icon-xl">📅</span> This week</h3>
+      ${renderWeekCalendar(s.daily_counts)}
+    </div>
+    <div class="ck-card">
+      <h3 style="margin-top:0;"><span class="ck-icon-xl">🏅</span> Badges</h3>
+      <div class="badge-row">${renderBadges(data.streak, data.xp, s.lessons_completed)}</div>
+    </div>
+    <div class="ck-card">
+      <h3 style="margin-top:0;"><span class="ck-icon-xl">🌐</span> By language</h3>
+      <table><tr><th>Language</th><th>Completed</th><th>Attempts</th><th>Avg score</th></tr>
+      ${Object.entries(data.language_stats).map(([code, ls]) => `
+        <tr><td>${code}</td><td>${ls.completed}/${ls.total}</td><td>${ls.attempts}</td><td>${ls.avg_score ?? '—'}</td></tr>
+      `).join('')}
+      </table>
+    </div>
+    <div class="ck-card">
+      <h3 style="margin-top:0;"><span class="ck-icon-xl">🎯</span> Needs practice</h3>
+      ${data.tricky_words.length ? `<table><tr><th>Word</th><th>Attempts</th><th>Avg score</th></tr>
+        ${data.tricky_words.map(w => `<tr><td>${w.word}</td><td>${w.attempts}</td><td>${w.avg_score}</td></tr>`).join('')}
+        </table>` : '<p>No repeated trouble spots yet.</p>'}
+    </div>
+    <div class="ck-card">
+      <h3 style="margin-top:0;"><span class="ck-icon-xl">🕒</span> Recent attempts</h3>
+      <table><tr><th>Lesson</th><th>Item</th><th>Score</th><th>Result</th></tr>
+      ${s.recent.map(r => `<tr><td>${r.lesson_id}</td><td>${r.unit_label}</td><td>${r.score ?? '—'}</td><td>${r.passed ? '✅' : '❌'}</td></tr>`).join('')}
+      </table>
+    </div>
+  `;
+  document.getElementById('content').innerHTML = html;
+}
+
+// If a ?child=NAME query param is present (e.g. arriving from the
+// teacher's "All Students" list), switch to that child immediately so
+// a teacher/parent can jump straight to one student's dashboard
+// without having to know/retype the name into the box themselves.
+const _urlChild = new URLSearchParams(location.search).get('child');
+if (_urlChild) setChildName(_urlChild);
+
+document.getElementById('child-name').value = getChildName();
+renderCkHeader('ck-header', 'Progress Dashboard');
+load();
+</script>
+</body>
+</html>
